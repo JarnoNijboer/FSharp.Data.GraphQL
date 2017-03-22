@@ -10,7 +10,7 @@ open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
 
 [<Fact>]
-let ``Object type should be able to merge fields with matching signatures from different interfaces`` () = 
+let ``Object type should be able to merge fields with matching signatures from different interfaces`` () =
     let MovableType = Define.Interface("Movable", [Define.Field("speed", Int)])
     let Movable2Type =
       Define.Interface(
@@ -27,17 +27,17 @@ let ``Object type should be able to merge fields with matching signatures from d
             Define.Field("speed", Int)
             Define.Field("acceleration", Int) ])
     equals [ MovableType :> InterfaceDef; upcast Movable2Type ] (PersonType.Implements |> Array.toList )
-    let expected = 
+    let expected =
         //NOTE: under normal conditions field order shouldn't matter in object definitions
         [ Define.Field("acceleration", Int) :> FieldDef
-          upcast Define.Field("name", String) 
+          upcast Define.Field("name", String)
           upcast Define.Field("speed", Int)  ]
     equals expected (( PersonType :> ObjectDef).Fields |> Map.toList |> List.map snd)
 
 [<Fact>]
 let ``Schema config should be able to override default error handling`` () =
-    let conf = { SchemaConfig.Default with ParseErrors = Array.mapi (fun idx _ -> string idx) }
-    let TestType = 
+    let conf = { SchemaConfig.Default with ParseErrors = Array.mapi (fun idx _ -> { Message = string idx; Locations = Array.empty }) }
+    let TestType =
         Define.Object<obj>("TestType", [
             Define.Field("passing", String, fun _ _ -> "ok")
             Define.Field("failing1", Nullable String, fun _ _ -> failwith "not ok" )
@@ -53,12 +53,12 @@ let ``Schema config should be able to override default error handling`` () =
     }
     """
     let actual = sync <| schema.AsyncExecute query
-    let expected = 
+    let expected =
          NameValueLookup.ofList [
             "test", box <| NameValueLookup.ofList [
                 "failing1", null
                 "passing", box "ok"
                 "failing2", null ]]
     actual.["data"] |> equals (upcast expected)
-    let e = actual.["errors"] :?> string seq
-    e |> Seq.toList |> equals ["0"; "1"]
+    let e = actual.["errors"] :?> GraphQLError seq
+    e |> Seq.toList |> equals [{ Message = "0"; Locations = Array.empty}; { Message = "1"; Locations= Array.empty}]
