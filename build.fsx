@@ -33,11 +33,13 @@ let gitOwner = "bazingatechnologies"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "FSharp.Data.GraphQL"
 let gitRaw = environVarOrDefault "gitRaw" "https://raw.github.com/bazingatechnologies"
-let release = LoadReleaseNotes "RELEASE_NOTES.md"
+let version = "0.0.3"
+let prerelease = "beta"
+let release = { (LoadReleaseNotes "RELEASE_NOTES.md") with AssemblyVersion = version; NugetVersion = (sprintf "%s-%s" version prerelease); }
 
 module Util =
     open System.Net
-    
+
     let join pathParts =
         Path.Combine(Array.ofSeq pathParts)
 
@@ -136,14 +138,14 @@ Target "AssemblyInfo" (fun _ ->
           Attribute.Description summary
           Attribute.Version release.AssemblyVersion
           Attribute.FileVersion release.AssemblyVersion ]
-          
+
     let internalsVisibility (fsproj: string) =
         match fsproj with
-        | f when f.EndsWith "FSharp.Data.GraphQL.Shared.fsproj" -> 
+        | f when f.EndsWith "FSharp.Data.GraphQL.Shared.fsproj" ->
             [ Attribute.InternalsVisibleTo "FSharp.Data.GraphQL.Server"
               Attribute.InternalsVisibleTo "FSharp.Data.GraphQL.Client"
               Attribute.InternalsVisibleTo "FSharp.Data.GraphQL.Tests" ]
-        | f when f.EndsWith "FSharp.Data.GraphQL.Server.fsproj" -> 
+        | f when f.EndsWith "FSharp.Data.GraphQL.Server.fsproj" ->
             [ Attribute.InternalsVisibleTo "FSharp.Data.GraphQL.Benchmarks"
               Attribute.InternalsVisibleTo "FSharp.Data.GraphQL.Tests" ]
         | _ -> []
@@ -157,6 +159,7 @@ Target "AssemblyInfo" (fun _ ->
         )
 
     !! "src/**/*.??proj"
+    -- "src/netcore/**/*.??proj"
     |> Seq.map getProjectDetails
     |> Seq.iter (fun (projFileName, projectName, folderName, attributes) ->
         match projFileName with
@@ -428,11 +431,11 @@ let publishPackage id =
             TemplateFile = sprintf "src/%s.%s/%s.%s.fsproj.paket.template" project id project id
             IncludeReferencedProjects = true
         })
-    Paket.Push(fun p ->
-        { p with 
-            WorkingDir = sprintf "nuget/%s.%s" project id
-            PublishUrl = "https://www.nuget.org/api/v2/package" })
-    
+    // Paket.Push(fun p ->
+    //     { p with
+    //         WorkingDir = sprintf "nuget/%s.%s" project id
+    //         PublishUrl = "https://www.nuget.org/api/v2/package" })
+
 Target "PublishServer" (fun _ ->
     publishPackage "Server"
 )
@@ -467,11 +470,12 @@ Target "All" DoNothing
   =?> ("AssemblyInfo", isLocalBuild)
   ==> "Build"
   ==> "CopyBinaries"
-  ==> "RunTests"
-  ==> "All"
-  =?> ("GenerateReferenceDocs", environVar "APPVEYOR" = "True")
-  =?> ("GenerateDocs", environVar "APPVEYOR" = "True")
-  =?> ("ReleaseDocs",isLocalBuild)
+  ==> "PublishServer"
+//   ==> "RunTests"
+   ==> "All"
+//   =?> ("GenerateReferenceDocs", environVar "APPVEYOR" = "True")
+//   =?> ("GenerateDocs", environVar "APPVEYOR" = "True")
+//   =?> ("ReleaseDocs",isLocalBuild)
 
 // "All"
 // #if MONO
